@@ -240,28 +240,45 @@ app.post("/productinfo", basicAuth, async (req, res) => {
 
 });
 
-app.get("/productinfo", async (req, res) => {
-    //For product information to appear on dashboard
-    const { deviceName } = req.query;
-
+app.get('/productinfo', async (req, res) => {
     try {
-        const database = client.db("GenCore");
-        const productsCollection = database.collection("Products");
+        const { deviceName, search, minPrice, maxPrice, ram } = req.query;
+        let query = {};
 
-        if (deviceName) {
-            const product = await productsCollection.findOne({ deviceName: deviceName });
-            if (!product) return res.status(404).json({ message: "Product not found." });
-            return res.status(200).json(product);
+        
+        const searchTerm = search || deviceName;
+        if (searchTerm) {
+            const regex = new RegExp(searchTerm, 'i'); 
+            query.$or = [
+                { deviceName: regex },
+                { deviceSpecs: regex },
+                { deviceType: regex },
+                { deviceRam: regex },
+                { deviceStorage: regex }
+            ];
         }
 
-        const allProducts = await productsCollection.find({}).toArray();
-        res.status(200).json(allProducts);
-    } catch (error) {
-        console.error("Error fetching products:", error);
-        res.status(500).json({ message: "Internal server error." });
+        if (ram) {
+            query.deviceRam = new RegExp(ram, 'i');
+        }
+
+        if (minPrice || maxPrice) {
+            query.devicePrice = {};
+            if (minPrice) query.devicePrice.$gte = Number(minPrice);
+            if (maxPrice) query.devicePrice.$lte = Number(maxPrice);
+        }
+
+        const products = await db.collection('Products').find(query).toArray();
+
+        if (!products || products.length === 0) {
+            return res.status(404).json({ message: "No matching devices found." });
+        }
+
+        res.status(200).json(products);
+    } catch (err) {
+        console.error("Error querying products:", err);
+        res.status(500).json({ error: "Internal Server Error" });
     }
-
-
 });
 
 app.get("/productinfo/:id", async (req, res) => {
@@ -440,45 +457,37 @@ app.get("/paymentconfirm/:id", basicAuth, async (req, res) => {
 });
 
 
-app.post("/ordernumber", async (req, res) => {
-    // To create a new order number
-    const { userEmail, paymentId } = req.body;
-
+app.post('/ordernumber', async (req, res) => {
     try {
-        const database = client.db("GenCore");
-        const deliveryCollection = database.collection("Delivery");
+        const { userEmail } = req.body;
+        
 
-        const orderTrackingNumber = "ORD-" + Math.floor(100000 + Math.random() * 900000);
+        const customOrderId = "ORD-" + Math.floor(100000 + Math.random() * 900000);
 
         const newOrder = {
-            orderNumber: orderTrackingNumber,
-            userEmail: userEmail || "guest@gencore.co.za",
-            paymentId: paymentId ? new ObjectId(paymentId) : null,
-            orderStatus: "Processing",
-            createdAt: new Date()
+            orderId: customOrderId,
+            userEmail: userEmail,
+            createdAt: new Date(),
+            currentStatus: "Order Placed & Processing"
         };
 
-        const result = await deliveryCollection.insertOne(newOrder);
-        res.status(201).json({ 
-            message: "New order tracking number created successfully!", 
-            orderNumber: orderTrackingNumber,
-            orderId: result.insertedId 
-        });
-    } catch (error) {
-        console.error("Error in POST /ordernumber:", error);
-        res.status(500).json({ message: "Internal server error creating order number." });
+        await db.collection('Orders').insertOne(newOrder);
+
+        res.status(200).json({ orderNumber: customOrderId, message: "Order created successfully!" });
+    } catch (err) {
+        console.error("Error creating order:", err);
+        res.status(500).json({ error: "Failed to generate order" });
     }
 });
 
-// To retirve specific order number details
 app.get("/ordernumber/:id", async (req, res) => {
     const { id } = req.params;
 
     try {
         const database = client.db("GenCore");
-        const deliveryCollection = database.collection("Delivery");
+        const ordersCollection = database.collection("Orders");
 
-        const orderDetails = await deliveryCollection.findOne({ _id: new ObjectId(id) });
+        const orderDetails = await ordersCollection.findOne({ _id: new ObjectId(id) });
 
         if (!orderDetails) {
             return res.status(404).json({ message: "Specific order record not found." });
@@ -490,6 +499,20 @@ app.get("/ordernumber/:id", async (req, res) => {
         res.status(500).json({ message: "Invalid ID format or internal server error." });
     }
 });
+
+app.get('/orders', async (req, res) => {
+    try {
+        const database = client.db("GenCore");
+        const ordersCollection = database.collection("Orders");
+
+        const orders = await ordersCollection.find({}).toArray();
+        res.status(200).json(orders);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch orders" });
+    }
+});
+
+
 
 //DELIVERY PROCESSING
 
