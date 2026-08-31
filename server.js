@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 const bcrypt = require("bcrypt")
 
 
-const uri = process.env.MONGO_URI;
+const uri = "mongodb+srv://nissilossala:jung1nie@gencore-0.3dchaxk.mongodb.net/?appName=Gencore-0"
 
 app.use(cors())
 app.use(express.json());
