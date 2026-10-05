@@ -1,5 +1,6 @@
 global.crypto = require('crypto');
-require("dotenv").config();
+const path = require("path")
+require("dotenv").config({ path: path.resolve(__dirname, '.env') });;
 const express = require("express");
 const { MongoClient, ObjectId } = require("mongodb")
 const axios = require ("axios");
@@ -9,13 +10,11 @@ const PORT = process.env.PORT || 3000;
 const bcrypt = require("bcrypt")
 
 
-const uri = "mongodb+srv://nissilossala:jung1nie@gencore-0.3dchaxk.mongodb.net/?appName=Gencore-0"
-
 app.use(cors())
 app.use(express.json());
 
 
-const client = new MongoClient(uri);
+const client = new MongoClient(process.env.MONGO_URI);
 
 let db;
 
