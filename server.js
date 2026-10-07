@@ -10,7 +10,9 @@ const PORT = process.env.PORT || 3000;
 const bcrypt = require("bcrypt")
 
 
-app.use(cors())
+app.use(cors({
+  origin: 'http://your-s3-bucket-website-url.s3-website-us-east-1.amazonaws.com'
+}));
 app.use(express.json());
 
 
